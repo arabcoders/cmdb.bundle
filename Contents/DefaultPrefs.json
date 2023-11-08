@@ -1,0 +1,8 @@
+[
+  {
+    "id": "api_url",
+    "label": "URL for API endpoint",
+    "type": "text",
+    "default": ""
+  }
+]
