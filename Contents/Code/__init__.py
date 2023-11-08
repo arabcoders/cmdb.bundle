@@ -121,17 +121,17 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
                         metadata.seasons[s].episodes[e].originally_available_at = Datetime.ParseDate(data.get('released_date')).date()
 
                     found = True
-                    Log(u"Update() - episode: {}, title: {}, released_date: {}, ep: {}".format(
+                    Log(u"Update() - episode: {}, title: {}, released_date: {}, file: {}".format(
                             metadata.seasons[s].episodes[e].index, 
                             metadata.seasons[s].episodes[e].title, 
-                            metadata.seasons[s].episodes[e].originally_available_at, 
-                            json.dumps(metadata.seasons[s].episodes[e],default=str)
+                            metadata.seasons[s].episodes[e].originally_available_at,
+                            filename,
                         )
                     )
                     break
 
                 episodes += 1                        
-                
+
                 if not found:
                     Log(u"Update() - No match for: [{}]".format(filename))
 
