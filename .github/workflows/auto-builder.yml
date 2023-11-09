@@ -1,0 +1,39 @@
+name: Publish Package
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  publish:
+    name: build_package
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Package
+        id: create_package
+        shell: bash
+        run: |
+          tag=$(git describe --tags --always)
+          release_name="${tag}-cmdb.bundle"
+
+          # Pack files
+          7z a -tzip "${release_name}.zip" "./Contents" "./README.md"
+          echo "::set-output name=release_name::${release_name}"
+          echo "::set-output name=release_tag::${tag}"
+          echo "::set-output name=filename::${release_name}.zip"
+
+      - name: Release
+        uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GH_TOKEN }}"
+          title: "${{ steps.create_package.outputs.release_tag }}"
+          automatic_release_tag: "${{ steps.create_package.outputs.release_tag }}"
+          prerelease: false
+          files: |
+            *.zip
