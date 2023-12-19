@@ -36,7 +36,7 @@ DEFAULT_RX = [
     # series - YY?YY(-._)MM(-._)DD -? title
     '(?P<series>.+?)(?P<year>\d{2,4})(\-|\.|_)?(?P<month>\d{2})(\-|\.|_)?(?P<day>\d{2})\s?-?(?P<title>.+)?',
     # series ep0000 Title
-    '(?P<series>.+?)\s?[Ee][Pp](?P<episode>[0-9]{1,4})\s?(?P<title>.+)',
+    '(?P<series>.+?)\s?(ep|sp|\#|S)(?P<episode>[0-9]{1,4})\s? \-?(?P<title>.+)',
     # S00E00 - Title
     '^[Ss](?P<season>[0-9]{1,2})[Ee](?P<episode>[0-9]{1,4})\s?-?(?P<title>.+)',
     # Title ep0000
