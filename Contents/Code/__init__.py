@@ -56,9 +56,10 @@ if os.path.exists(os.path.join(customFile)):
                 RX_LIST.append(pat)
             except Exception as e:
                 Log.Error("Error compiling custom regex: " +
-                        str(rx) + " - " + str(e))
+                          str(rx) + " - " + str(e))
     except Exception as e:
-        Log.Error("Error loading custom regex file [%s] - [%s]" % ( customFile, str(e) ) )
+        Log.Error(
+            "Error loading custom regex file [%s] - [%s]" % (customFile, str(e)))
 
 # Load default scanner regex.
 for rx in DEFAULT_RX:
@@ -68,31 +69,38 @@ for rx in DEFAULT_RX:
     except Exception as e:
         Log.Error("Error compiling regex: " + str(rx) + " - " + str(e))
 
+
 def Start():
     HTTP.CacheTime = 0
     HTTP.Headers['User-Agent'] = 'Mozilla/5.0 (iPad; CPU OS 7_0_4 like Mac OS X) AppleWebKit/537.51.1 (KHTML, like Gecko) Version/7.0 Mobile/11B554a Safari/9537.54'
     HTTP.Headers['Accept-Language'] = 'en-us'
 
-class CustomMetadataDBSeries(Agent.TV_Shows):
-    name                = 'Custom Metadata DB Agent'
-    primary_provider    = True
-    fallback_agent      = None
-    contributes_to      = None
-    accepts_from        = ['com.plexapp.agents.xbmcnfotv', 'com.plexapp.agents.localmedia']
-    languages           = [Locale.Language.NoLanguage]
 
-    def search(self, results,  media, lang, manual): 
-        Log(u"{}".format(media))
+class CustomMetadataDBSeries(Agent.TV_Shows):
+    name = 'Custom Metadata DB Agent'
+    primary_provider = True
+    fallback_agent = None
+    contributes_to = None
+    accepts_from = ['com.plexapp.agents.xbmcnfotv',
+                    'com.plexapp.agents.localmedia']
+    languages = [Locale.Language.NoLanguage]
+
+    def search(self, results,  media, lang, manual):
         json = self.searchCustomDB('series', media.show)
         if not json:
             Log(u"Search() - No results found for: [{}]".format(media.show))
             return
-        
+
         Log(u"Search() - id: {}, title: {}".format(json['id'], json['title']))
-        results.Append(MetadataSearchResult(id=json['id'],name=json['title'],score=100,lang=lang))
+        results.Append(MetadataSearchResult(
+            id=json['id'],
+            name=json['title'],
+            score=100,
+            lang=lang
+        ))
         Log(''.ljust(157, '='))
 
-    def update(self, metadata, media, lang, force): 
+    def update(self, metadata, media, lang, force):
         for s in sorted(media.seasons, key=natural_sort_key):
             episodes = 1
             for e in sorted(media.seasons[s].episodes, key=natural_sort_key):
@@ -108,33 +116,36 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
                     data = self.handleMatch(match, media.title)
                     if not data:
                         continue
-                    
+
                     if episodes == 1:
                         metadata.title = media.title
 
-                    metadata.seasons[s].episodes[e].index = int(data.get('episode'))
-                    metadata.seasons[s].episodes[e].absolute_index = int(data.get('episode'))
+                    metadata.seasons[s].episodes[e].index = int(
+                        data.get('episode'))
+                    metadata.seasons[s].episodes[e].absolute_index = int(
+                        data.get('episode'))
                     if data.get('title'):
-                        metadata.seasons[s].episodes[e].title = data.get('title')
+                        metadata.seasons[s].episodes[e].title = data.get(
+                            'title')
 
                     if data.get('released_date'):
-                        metadata.seasons[s].episodes[e].originally_available_at = Datetime.ParseDate(data.get('released_date')).date()
+                        metadata.seasons[s].episodes[e].originally_available_at = Datetime.ParseDate(
+                            data.get('released_date')).date()
 
                     found = True
                     Log(u"Update() - episode: {}, title: {}, released_date: {}, file: {}".format(
-                            metadata.seasons[s].episodes[e].index, 
-                            metadata.seasons[s].episodes[e].title, 
-                            metadata.seasons[s].episodes[e].originally_available_at,
-                            filename,
-                        )
+                        metadata.seasons[s].episodes[e].index,
+                        metadata.seasons[s].episodes[e].title,
+                        metadata.seasons[s].episodes[e].originally_available_at,
+                        filename,
+                    )
                     )
                     break
 
-                episodes += 1                        
+                episodes += 1
 
                 if not found:
                     Log(u"Update() - No match for: [{}]".format(filename))
-
 
     def handleMatch(self, match, show):
         series = match.group('series') if match.groupdict().has_key(
@@ -142,7 +153,8 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
         month = match.group('month') if match.groupdict().has_key(
             'month') else None
         day = match.group('day') if match.groupdict().has_key('day') else None
-        year = match.group('year') if match.groupdict().has_key('year') else None
+        year = match.group('year') if match.groupdict().has_key(
+            'year') else None
         episode = match.group('episode') if match.groupdict().has_key(
             'episode') else None
         title = match.group('title') if match.groupdict().has_key(
@@ -159,7 +171,7 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
             year = '20' + year
 
         released_date = "%s-%s-%s" % (year, month,
-                                    day) if year and month and day else None
+                                      day) if year and month and day else None
 
         if not season:
             season = int(year) if year else 1
@@ -180,7 +192,7 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
             return None
 
         return {"season": season, "episode": episode, "title": title, "year": year, "month": month, "day": day, 'released_date': released_date}
-    
+
     def searchCustomDB(self, type, query):
         apiUrl = Prefs["api_url"]
         if not apiUrl:
