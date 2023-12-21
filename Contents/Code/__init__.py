@@ -182,10 +182,16 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
         if not title or title == series:
             title = released_date
 
-        if title and match.groupdict().has_key('epNumber'):
-            title = match.group('epNumber') + ' - ' + title
-
         if title:
+            title = title.strip().strip('-').strip()
+            if match.groupdict().has_key('epNumber'):
+                title = match.group('epNumber') + ' - ' + title
+            elif title and released_date != title:
+                title = u"{} ~ {}".format(
+                    released_date.replace('-', '')[2:],
+                    title
+                )
+
             title = title.strip()
 
         if season is None and episode is None:
