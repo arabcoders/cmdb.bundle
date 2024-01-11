@@ -4,7 +4,8 @@
 import sys                  # getdefaultencoding, getfilesystemencoding, platform, argv
 import os                   # path.abspath, join, dirname
 import re                   #
-import inspect              # getfile, currentframe
+import inspect
+import time              # getfile, currentframe
 import urllib              #
 import urllib2              #
 import json
@@ -36,7 +37,7 @@ DEFAULT_RX = [
     # series - YY?YY(-._)MM(-._)DD -? title
     '(?P<series>.+?)(?P<year>\d{2,4})(\-|\.|_)?(?P<month>\d{2})(\-|\.|_)?(?P<day>\d{2})\s?-?(?P<title>.+)?',
     # series ep0000 Title
-    '(?P<series>.+?)\s?[Ee][Pp](?P<episode>[0-9]{1,4})\s?(?P<title>.+)',
+    '(?P<series>.+?)\s?(ep|sp|\#|S)(?P<episode>[0-9]{1,4})\s? \-?(?P<title>.+)',
     # S00E00 - Title
     '^[Ss](?P<season>[0-9]{1,2})[Ee](?P<episode>[0-9]{1,4})\s?-?(?P<title>.+)',
     # Title ep0000
@@ -56,9 +57,10 @@ if os.path.exists(os.path.join(customFile)):
                 RX_LIST.append(pat)
             except Exception as e:
                 Log.Error("Error compiling custom regex: " +
-                        str(rx) + " - " + str(e))
+                          str(rx) + " - " + str(e))
     except Exception as e:
-        Log.Error("Error loading custom regex file [%s] - [%s]" % ( customFile, str(e) ) )
+        Log.Error(
+            "Error loading custom regex file [%s] - [%s]" % (customFile, str(e)))
 
 # Load default scanner regex.
 for rx in DEFAULT_RX:
@@ -68,81 +70,95 @@ for rx in DEFAULT_RX:
     except Exception as e:
         Log.Error("Error compiling regex: " + str(rx) + " - " + str(e))
 
+
 def Start():
     HTTP.CacheTime = 0
     HTTP.Headers['User-Agent'] = 'Mozilla/5.0 (iPad; CPU OS 7_0_4 like Mac OS X) AppleWebKit/537.51.1 (KHTML, like Gecko) Version/7.0 Mobile/11B554a Safari/9537.54'
     HTTP.Headers['Accept-Language'] = 'en-us'
 
-class CustomMetadataDBSeries(Agent.TV_Shows):
-    name                = 'Custom Metadata DB Agent'
-    primary_provider    = True
-    fallback_agent      = None
-    contributes_to      = None
-    accepts_from        = ['com.plexapp.agents.xbmcnfotv', 'com.plexapp.agents.localmedia']
-    languages           = [Locale.Language.NoLanguage]
 
-    def search(self, results,  media, lang, manual): 
-        Log(u"{}".format(media))
+class CustomMetadataDBSeries(Agent.TV_Shows):
+    name = 'Custom Metadata DB Agent'
+    primary_provider = True
+    fallback_agent = None
+    contributes_to = None
+    accepts_from = ['com.plexapp.agents.xbmcnfotv',
+                    'com.plexapp.agents.localmedia']
+    languages = [Locale.Language.NoLanguage]
+
+    def search(self, results,  media, lang, manual):
         json = self.searchCustomDB('series', media.show)
         if not json:
             Log(u"Search() - No results found for: [{}]".format(media.show))
             return
-        
+
         Log(u"Search() - id: {}, title: {}".format(json['id'], json['title']))
-        results.Append(MetadataSearchResult(id=json['id'],name=json['title'],score=100,lang=lang))
+        results.Append(MetadataSearchResult(
+            id=json['id'],
+            name=json['title'],
+            score=100,
+            lang=lang
+        ))
         Log(''.ljust(157, '='))
 
-    def update(self, metadata, media, lang, force): 
-        for s in sorted(media.seasons, key=natural_sort_key):
-            episodes = 1
-            for e in sorted(media.seasons[s].episodes, key=natural_sort_key):
-                realFile = media.seasons[s].episodes[e].items[0].parts[0].file
-                filename = os.path.basename(realFile)
-                (fileOnly, _) = os.path.splitext(filename)
-                found = False
-                for rx in RX_LIST:
-                    match = rx.match(fileOnly)
-                    if not match:
-                        continue
+    def update(self, metadata, media, lang, force):
+        @parallelize
+        def UpdateEpisodes():
+            for s in media.seasons:
+                for e in sorted(media.seasons[s].episodes, key=natural_sort_key):
+                    episode = metadata.seasons[s].episodes[e]
+                    episode_file = media.seasons[s].episodes[e].items[0].parts[0].file
 
-                    data = self.handleMatch(match, media.title)
-                    if not data:
-                        continue
-                    
-                    if episodes == 1:
-                        metadata.title = media.title
+                    @task
+                    def updateEpisode(episode=episode, realFile=episode_file, metadata=metadata):
+                        filename = os.path.basename(realFile)
+                        (fileOnly, _) = os.path.splitext(filename)
+                        found = False
+                        for rx in RX_LIST:
+                            match = rx.match(fileOnly)
+                            if not match:
+                                continue
 
-                    metadata.seasons[s].episodes[e].index = int(data.get('episode'))
-                    metadata.seasons[s].episodes[e].absolute_index = int(data.get('episode'))
-                    if data.get('title'):
-                        metadata.seasons[s].episodes[e].title = data.get('title')
+                            data = self.handleMatch(
+                                match, metadata.title, episode_file)
+                            if not data:
+                                continue
 
-                    if data.get('released_date'):
-                        metadata.seasons[s].episodes[e].originally_available_at = Datetime.ParseDate(data.get('released_date')).date()
+                            episode.index = int(data.get('episode'))
+                            episode.absolute_index = int(data.get('episode'))
 
-                    found = True
-                    Log(u"Update() - episode: {}, title: {}, released_date: {}, file: {}".format(
-                            metadata.seasons[s].episodes[e].index, 
-                            metadata.seasons[s].episodes[e].title, 
-                            metadata.seasons[s].episodes[e].originally_available_at,
-                            filename,
-                        )
-                    )
-                    break
+                            if data.get('title'):
+                                episode.title = data.get('title')
+                                if metadata.title is None:
+                                    metadata.title = episode.title
 
-                episodes += 1                        
+                            if data.get('released_date'):
+                                episode.originally_available_at = Datetime.ParseDate(
+                                    data.get('released_date')).date()
+                                if metadata.originally_available_at is None:
+                                    metadata.originally_available_at = episode.originally_available_at
 
-                if not found:
-                    Log(u"Update() - No match for: [{}]".format(filename))
+                            found = True
+                            Log(u"updateEpisode() - episode: {}, title: {}, released_date: {}, file: {}".format(
+                                episode.index,
+                                episode.title,
+                                episode.originally_available_at,
+                                filename,
+                            ))
+                            break
 
+                        if not found:
+                            Log(
+                                u"updateEpisode() - No match for: [{}]".format(filename))
 
-    def handleMatch(self, match, show):
+    def handleMatch(self, match, show, file=None):
         series = match.group('series') if match.groupdict().has_key(
             'series') else None
         month = match.group('month') if match.groupdict().has_key(
             'month') else None
         day = match.group('day') if match.groupdict().has_key('day') else None
-        year = match.group('year') if match.groupdict().has_key('year') else None
+        year = match.group('year') if match.groupdict().has_key(
+            'year') else None
         episode = match.group('episode') if match.groupdict().has_key(
             'episode') else None
         title = match.group('title') if match.groupdict().has_key(
@@ -159,7 +175,7 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
             year = '20' + year
 
         released_date = "%s-%s-%s" % (year, month,
-                                    day) if year and month and day else None
+                                      day) if year and month and day else None
 
         if not season:
             season = int(year) if year else 1
@@ -170,17 +186,30 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
         if not title or title == series:
             title = released_date
 
-        if title and match.groupdict().has_key('epNumber'):
-            title = match.group('epNumber') + ' - ' + title
-
         if title:
+            title = title.strip().strip('-').strip()
+            if match.groupdict().has_key('epNumber'):
+                title = match.group('epNumber') + ' - ' + title
+            elif title and released_date != title:
+                title = u"{} ~ {}".format(
+                    released_date.replace('-', '')[2:],
+                    title
+                )
+
             title = title.strip()
 
         if season is None and episode is None:
             return None
 
+        if file and len(str(episode)) < 8 and os.path.exists(file):
+            json_ts = time.gmtime(os.path.getmtime(file))
+            minute = json_ts[4]
+            seconds = json_ts[5]
+            episode = int('{}{:>02}{:>02}'.format(
+                episode, minute, seconds))
+
         return {"season": season, "episode": episode, "title": title, "year": year, "month": month, "day": day, 'released_date': released_date}
-    
+
     def searchCustomDB(self, type, query):
         apiUrl = Prefs["api_url"]
         if not apiUrl:
