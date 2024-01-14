@@ -21,7 +21,7 @@ the other plugins for [jellyfin](https://github.com/arabcoders/jf-custom-metadat
 
 # Server implementation
 
-You can see a quick implementation of the server in [https://github.com/arabcoders/cmdb.bundle/blob/master/server/index.php](index.php) file, i stress this not a production ready server, it's just a quick implementation to get you started to see how the plugins interact with it.
+You can see a quick implementation of the server in [index.php](https://github.com/arabcoders/cmdb.bundle/blob/master/server/index.php) file, i stress this not a production ready server, it's just a quick implementation to get you started to see how the plugins interact with it.
 
 You can use this server as a starting point to build your own server, or you can use any other server that respond with the same format.
 This server implementation works for all the plugins custom metadata plugins.
