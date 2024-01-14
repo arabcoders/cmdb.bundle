@@ -4,17 +4,29 @@ This is a bundle for [Plex Media Server](https://plex.tv) that purely here to ge
 the other plugins for [jellyfin](https://github.com/arabcoders/jf-custom-metadata-db) and [emby](https://github.com/arabcoders/emby-custom-metadata-db).
 
 
-**This plugin require an server that respond with a unique ID for a given TV series name.**
+**This plugin require server that respond with a unique ID for a given TV series name in the following format.**
+
+```json5
+[
+    {
+        "id": "jp-bded21fb4b",
+        "title": "Show Real title",
+        "match": [
+            "Matchers"
+        ]
+    },
+    ...
+]
+```
 
 # Server implementation
 
-You can see a quick implementation of the server in [server/index.php](index.php) file, i stress this not a production ready server, it's just a quick implementation to get you started to see how the plugins interact with it.
+You can see a quick implementation of the server in [https://github.com/arabcoders/cmdb.bundle/blob/master/server/index.php](index.php) file, i stress this not a production ready server, it's just a quick implementation to get you started to see how the plugins interact with it.
 
 You can use this server as a starting point to build your own server, or you can use any other server that respond with the same format.
 This server implementation works for all the plugins custom metadata plugins.
 
-These plugins are purely here to generate unique IDs for TV series, so they can work with my other tool [WatchState][https://github.com/arabcoders/watchstate]
-If you are looking to generate custom metadata for your TV series, you can use the the NFO plugins for that. I do so myself.
+These plugins are purely here to generate unique IDs for TV series, so they can work with [WatchState](https://github.com/arabcoders/watchstate) If you are looking to generate custom metadata for your TV series, you can use the the [NFO plugins](https://github.com/gboudreau/XBMCnfoTVImporter.bundle) for that. I do so myself.
 
 # Installation
 
