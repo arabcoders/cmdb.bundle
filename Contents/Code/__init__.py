@@ -9,6 +9,7 @@ import time              # getfile, currentframe
 import urllib              #
 import urllib2              #
 import json
+from dateutil.parser import parse
 
 ### Mini Functions ###
 # Avoid 1, 10, 2, 20... #Usage: list.sort(key=natural_sort_key), sorted(list, key=natural_sort_key)
@@ -86,7 +87,103 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
                     'com.plexapp.agents.localmedia']
     languages = [Locale.Language.NoLanguage]
 
+    def getShowInfo(self, media):
+
+        def getFile(media):
+            if not media or not media.seasons:
+                return None
+
+            for s in media.seasons:
+                for e in media.seasons[s].episodes:
+                    file = media.seasons[s].episodes[e].items[0].parts[0].file
+                    if not file:
+                        continue
+                    return file
+            return None        
+        
+        filename = getFile(media)
+        if not filename:
+            Log(u"getShowInfo() - No file found in media object.")
+            return None
+        
+        info = {}
+        filename = urllib.unquote(filename).decode('utf8')
+        dirName = os.path.dirname(os.path.dirname(filename))
+        parentDirName = os.path.basename(dirName)
+        Log(u"getShowInfo() - filename: {} dirName: {} parentDirName: {}".format(
+            filename,
+            dirName,
+            parentDirName
+        ))
+
+        try:
+            nfoFile = os.path.join(dirName, "tvshow.nfo")
+            if not os.path.exists(nfoFile):
+                Log(u"getShowInfo() - No tvshow.nfo file found in: {}.".format(dirName))
+                return None
+            
+            nfoText = Core.storage.load(nfoFile)
+            # work around failing XML parses for things with &'s in them. This may need to go farther than just &'s....
+            nfoText = re.sub(r'&(?![A-Za-z]+[0-9]*;|#[0-9]+;|#x[0-9a-fA-F]+;)', r'&amp;', nfoText)
+            # remove empty xml tags from nfo
+            nfoText = re.sub(r'^\s*<.*/>[\r\n]+', '', nfoText, flags = re.MULTILINE)
+
+            try:
+                nfoXML = XML.ElementFromString(nfoText).xpath('//tvshow')[0]
+            except:
+                Log(u"ERROR: Cant parse XML in '{}' Aborting!".format(nfoFile))
+                return None
+        
+            # Title
+            try: 
+                info['title'] = nfoXML.xpath("title")[0].text.strip()
+            except:
+                Log(u"ERROR: No <title> tag in '{}' Aborting!".format(nfoFile))
+                return None
+
+            # original title
+            try: info['original_title'] = nfoXML.xpath('originaltitle')[0].text.strip() 
+            except: pass
+
+            # Network
+            try: info['studio'] = nfoXML.xpath("studio")[0].text.strip()
+            except: pass
+
+            # Summary
+            try: info['summary'] = nfoXML.findall("plot")[0].text.strip()
+            except: pass
+
+            # Premiere
+            try:
+                air_string = None
+                try: air_string = nfoXML.xpath("aired")[0].text.strip()
+                except: pass
+                if not air_string:
+                    try: air_string = nfoXML.xpath("premiered")[0].text.strip()
+                    except: pass
+                if not air_string:
+                    try: air_string = nfoXML.xpath("dateadded")[0].text
+                    except: pass
+
+                if air_string:
+                    try: info['premiered'] = Datetime.ParseDate(air_string).date()
+                    except: pass
+            except: pass            
+
+            Log(u"getShowInfo() - info: {}".format(info))
+
+            return info
+        except Exception as e:
+            Log(u'getShowInfo() Exception: {}'.format(e))
+            Log(u'getShowInfo() Traceback: {}'.format(traceback.format_exc()))
+            return None
+
+    
+    
     def search(self, results,  media, lang, manual):
+        Log("".ljust(60, '='))
+        Log(u"Search() - Looking for: {}".format(media.show))
+        Log("".ljust(60, '='))        
         json = self.searchCustomDB('series', media.show)
         if not json:
             Log(u"Search() - No results found for: [{}]".format(media.show))
@@ -94,14 +191,35 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
 
         Log(u"Search() - id: {}, title: {}".format(json['id'], json['title']))
         results.Append(MetadataSearchResult(
-            id=json['id'],
-            name=json['title'],
-            score=100,
-            lang=lang
+            id=json.get('id'),
+            name=json.get('title'),
+            lang=lang,
+            score=100
         ))
+        results.Sort('score', descending=True)
         Log(''.ljust(157, '='))
 
     def update(self, metadata, media, lang, force):
+        Log("".ljust(60, '='))
+        Log("Entering update function")
+        Log("".ljust(60, '='))
+
+        # Get the path to an media file to process channel data.
+        nfo_file = self.getShowInfo(media)
+        if nfo_file:
+            if nfo_file.get('title'):
+                metadata.title = nfo_file.get('id')
+
+            if nfo_file.get('studio'):
+                metadata.studio = nfo_file.get('studio')
+
+            if nfo_file.get('summary'):
+                metadata.summary = nfo_file.get('summary')
+
+            if nfo_file.get('premiered'):
+                metadata.originally_available_at = nfo_file.get('premiered')
+
+
         @parallelize
         def UpdateEpisodes():
             for s in media.seasons:
@@ -129,8 +247,6 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
 
                             if data.get('title'):
                                 episode.title = data.get('title')
-                                if metadata.title is None:
-                                    metadata.title = episode.title
 
                             if data.get('released_date'):
                                 episode.originally_available_at = Datetime.ParseDate(
@@ -201,7 +317,7 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
         if season is None and episode is None:
             return None
 
-        if file and len(str(episode)) < 8 and os.path.exists(file):
+        if file and released_date and len(str(episode)) < 8 and os.path.exists(file):
             json_ts = time.gmtime(os.path.getmtime(file))
             minute = json_ts[4]
             seconds = json_ts[5]
