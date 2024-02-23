@@ -299,14 +299,14 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
         if not episode:
             episode = int('1' + match.group('month') + match.group('day'))
 
-        if not title or title == series:
+        if not title or title == series and released_date:
             title = released_date
 
         if title:
             title = title.strip().strip('-').strip()
             if match.groupdict().has_key('epNumber'):
                 title = match.group('epNumber') + ' - ' + title
-            elif title and released_date != title:
+            elif title and released_date != title and released_date:
                 title = u"{} ~ {}".format(
                     released_date.replace('-', '')[2:],
                     title
