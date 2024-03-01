@@ -30,7 +30,7 @@ RX_LIST = []
 
 DEFAULT_RX = [
     # YY?YY(-._)MM(-._)DD -? series -? epNumber -? title
-    '^(?P<year>\d{2,4})(\-|\.|_)?(?P<month>\d{2})(\-|\.|_)?(?P<day>\d{2})\s-?(?P<series>.+?)(?P<epNumber>\#(\d+)|ep(\d+)|DVD[0-9.-]+|SP[0-9.-]+) -?(?P<title>.+)',
+    '^(?P<year>\d{2,4})(\-|\.|_)?(?P<month>\d{2})(\-|\.|_)?(?P<day>\d{2})\s-?(?P<series>.+?)(?P<epNumber>\#(\d+)|ep(\d+)|DVD[0-9.-]+|SP[0-9.-]+|Episode\s(\d+)) -?(?P<title>.+)',
     # YY?YY(-._)MM(-._)DD -? title
     '^(?P<year>\d{2,4})(\-|\.|_)?(?P<month>\d{2})(\-|\.|_)?(?P<day>\d{2})\s?-?(?P<title>.+)',
     # title YY?YY(-._)MM(-._)DD at end of filename.
