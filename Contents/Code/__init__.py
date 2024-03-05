@@ -30,7 +30,7 @@ RX_LIST = []
 
 DEFAULT_RX = [
     # YY?YY(-._)MM(-._)DD -? series -? epNumber -? title
-    '^(?P<year>\d{2,4})(\-|\.|_)?(?P<month>\d{2})(\-|\.|_)?(?P<day>\d{2})\s-?(?P<series>.+?)(?P<epNumber>\#(\d+)|ep(\d+)|DVD[0-9.-]+|SP[0-9.-]+|Episode\s(\d+)) -?(?P<title>.+)',
+    '^(?P<year>\d{2,4})(\-|\.|_)?(?P<month>\d{2})(\-|\.|_)?(?P<day>\d{2})\s-?(?P<series>.+?)(?P<epNumber>\#(\d+)|ep(\d+)|DVD[0-9.-]+|DISC[0-9.-]+|SP[0-9.-]+|Episode\s(\d+)) -?(?P<title>.+)',
     # YY?YY(-._)MM(-._)DD -? title
     '^(?P<year>\d{2,4})(\-|\.|_)?(?P<month>\d{2})(\-|\.|_)?(?P<day>\d{2})\s?-?(?P<title>.+)',
     # title YY?YY(-._)MM(-._)DD at end of filename.
@@ -247,6 +247,8 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
 
                             if data.get('title'):
                                 episode.title = data.get('title')
+                                if not episode.summary:
+                                    episode.summary = fileOnly
 
                             if data.get('released_date'):
                                 episode.originally_available_at = Datetime.ParseDate(
