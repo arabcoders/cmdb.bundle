@@ -99,13 +99,13 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
                     if not file:
                         continue
                     return file
-            return None        
-        
+            return None
+
         filename = getFile(media)
         if not filename:
             Log(u"getShowInfo() - No file found in media object.")
             return None
-        
+
         info = {}
         filename = urllib.unquote(filename).decode('utf8')
         dirName = os.path.dirname(os.path.dirname(filename))
@@ -121,54 +121,69 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
             if not os.path.exists(nfoFile):
                 Log(u"getShowInfo() - No tvshow.nfo file found in: {}.".format(dirName))
                 return None
-            
+
             nfoText = Core.storage.load(nfoFile)
             # work around failing XML parses for things with &'s in them. This may need to go farther than just &'s....
             nfoText = re.sub(r'&(?![A-Za-z]+[0-9]*;|#[0-9]+;|#x[0-9a-fA-F]+;)', r'&amp;', nfoText)
             # remove empty xml tags from nfo
-            nfoText = re.sub(r'^\s*<.*/>[\r\n]+', '', nfoText, flags = re.MULTILINE)
+            nfoText = re.sub(r'^\s*<.*/>[\r\n]+', '', nfoText, flags=re.MULTILINE)
 
             try:
                 nfoXML = XML.ElementFromString(nfoText).xpath('//tvshow')[0]
             except:
                 Log(u"ERROR: Cant parse XML in '{}' Aborting!".format(nfoFile))
                 return None
-        
+
             # Title
-            try: 
+            try:
                 info['title'] = nfoXML.xpath("title")[0].text.strip()
             except:
                 Log(u"ERROR: No <title> tag in '{}' Aborting!".format(nfoFile))
                 return None
 
             # original title
-            try: info['original_title'] = nfoXML.xpath('originaltitle')[0].text.strip() 
-            except: pass
+            try:
+                info['original_title'] = nfoXML.xpath('originaltitle')[0].text.strip()
+            except:
+                pass
 
             # Network
-            try: info['studio'] = nfoXML.xpath("studio")[0].text.strip()
-            except: pass
+            try:
+                info['studio'] = nfoXML.xpath("studio")[0].text.strip()
+            except:
+                pass
 
             # Summary
-            try: info['summary'] = nfoXML.findall("plot")[0].text.strip()
-            except: pass
+            try:
+                info['summary'] = nfoXML.findall("plot")[0].text.strip()
+            except:
+                pass
 
             # Premiere
             try:
                 air_string = None
-                try: air_string = nfoXML.xpath("aired")[0].text.strip()
-                except: pass
+                try:
+                    air_string = nfoXML.xpath("aired")[0].text.strip()
+                except:
+                    pass
                 if not air_string:
-                    try: air_string = nfoXML.xpath("premiered")[0].text.strip()
-                    except: pass
+                    try:
+                        air_string = nfoXML.xpath("premiered")[0].text.strip()
+                    except:
+                        pass
                 if not air_string:
-                    try: air_string = nfoXML.xpath("dateadded")[0].text
-                    except: pass
+                    try:
+                        air_string = nfoXML.xpath("dateadded")[0].text
+                    except:
+                        pass
 
                 if air_string:
-                    try: info['premiered'] = Datetime.ParseDate(air_string).date()
-                    except: pass
-            except: pass            
+                    try:
+                        info['premiered'] = Datetime.ParseDate(air_string).date()
+                    except:
+                        pass
+            except:
+                pass
 
             Log(u"getShowInfo() - info: {}".format(info))
 
@@ -178,12 +193,10 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
             Log(u'getShowInfo() Traceback: {}'.format(traceback.format_exc()))
             return None
 
-    
-    
     def search(self, results,  media, lang, manual):
         Log("".ljust(60, '='))
         Log(u"Search() - Looking for: {}".format(media.show))
-        Log("".ljust(60, '='))        
+        Log("".ljust(60, '='))
         json = self.searchCustomDB('series', media.show)
         if not json:
             Log(u"Search() - No results found for: [{}]".format(media.show))
@@ -218,7 +231,6 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
 
             if nfo_file.get('premiered'):
                 metadata.originally_available_at = nfo_file.get('premiered')
-
 
         @parallelize
         def UpdateEpisodes():
@@ -257,7 +269,8 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
                                     metadata.originally_available_at = episode.originally_available_at
 
                             found = True
-                            Log(u"updateEpisode() - episode: {}, title: {}, released_date: {}, file: {}".format(
+                            Log(u"updateEpisode() - season: {}, episode: {}, title: {}, released_date: {}, file: {}".format(
+                                s,
                                 episode.index,
                                 episode.title,
                                 episode.originally_available_at,
@@ -266,21 +279,15 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
                             break
 
                         if not found:
-                            Log(
-                                u"updateEpisode() - No match for: [{}]".format(filename))
+                            Log(u"updateEpisode() - No match for: [{}]".format(filename))
 
     def handleMatch(self, match, show, file=None):
-        series = match.group('series') if match.groupdict().has_key(
-            'series') else None
-        month = match.group('month') if match.groupdict().has_key(
-            'month') else None
+        series = match.group('series') if match.groupdict().has_key('series') else None
+        month = match.group('month') if match.groupdict().has_key('month') else None
         day = match.group('day') if match.groupdict().has_key('day') else None
-        year = match.group('year') if match.groupdict().has_key(
-            'year') else None
-        episode = match.group('episode') if match.groupdict().has_key(
-            'episode') else None
-        title = match.group('title') if match.groupdict().has_key(
-            'title') else None
+        year = match.group('year') if match.groupdict().has_key('year') else None
+        episode = match.group('episode') if match.groupdict().has_key('episode') else None
+        title = match.group('title') if match.groupdict().has_key('title') else None
         if title:
             if show and show.lower() in title.lower():
                 title = re.sub(re.escape(show), '', title, flags=re.IGNORECASE)
@@ -292,11 +299,10 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
         if year and len(year) == 2:
             year = '20' + year
 
-        released_date = "%s-%s-%s" % (year, month,
-                                      day) if year and month and day else None
+        released_date = "%s-%s-%s" % (year, month, day) if year and month and day else None
 
         if not season:
-            season = int(year) if year else 1
+            season = int(year)+int(month) if year and month else 1
 
         if not episode:
             episode = int('1' + match.group('month') + match.group('day'))
@@ -323,8 +329,7 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
             json_ts = time.gmtime(os.path.getmtime(file))
             minute = json_ts[4]
             seconds = json_ts[5]
-            episode = int('{}{:>02}{:>02}'.format(
-                episode, minute, seconds))
+            episode = int('{}{:>02}{:>02}'.format(episode, minute, seconds))
 
         return {"season": season, "episode": episode, "title": title, "year": year, "month": month, "day": day, 'released_date': released_date}
 
