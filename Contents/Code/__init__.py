@@ -293,8 +293,7 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
                 title = re.sub(re.escape(show), '', title, flags=re.IGNORECASE)
             title = re.sub('\[.+?\]', ' ', title).strip('-').strip()
 
-        season = match.group('season') if match.groupdict().has_key(
-            'season') else None
+        season = match.group('season') if match.groupdict().has_key('season') else None
 
         if year and len(year) == 2:
             year = '20' + year
@@ -302,7 +301,7 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
         released_date = "%s-%s-%s" % (year, month, day) if year and month and day else None
 
         if not season:
-            season = int(year)+int(month) if year and month else 1
+            season = int(year) if year else 1
 
         if not episode:
             episode = int('1' + match.group('month') + match.group('day'))
