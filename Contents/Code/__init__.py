@@ -202,13 +202,15 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
             Log(u"Search() - No results found for: [{}]".format(media.show))
             return
 
-        Log(u"Search() - id: {}, title: {}".format(json['id'], json['title']))
-        results.Append(MetadataSearchResult(
-            id=json.get('id'),
-            name=json.get('title'),
-            lang=lang,
-            score=100
-        ))
+        for item in json:
+            Log(u"Search() - found - id: {}, title: {}".format(item['id'], item['title']))
+            results.Append(MetadataSearchResult(
+                id=item['id'],
+                name=item['title'],
+                lang=lang,
+                score=100
+            ))
+
         results.Sort('score', descending=True)
         Log(''.ljust(157, '='))
 
@@ -301,7 +303,7 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
         released_date = "%s-%s-%s" % (year, month, day) if year and month and day else None
 
         if not season:
-            season = int(year)+int(month) if year and month else 1
+            season = int(year) if year else 1
 
         if not episode:
             episode = int('1' + match.group('month') + match.group('day'))
@@ -355,7 +357,7 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
                 return None
 
             contents = response.read()
-            return JSON.ObjectFromString(contents)[0]
+            return JSON.ObjectFromString(contents)
         except urllib2.HTTPError as e:
             print(e.reason)
             Log.Error(e.reason)

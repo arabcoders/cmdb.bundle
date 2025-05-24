@@ -17,26 +17,14 @@ function n(string $title): string
 
 function clean_up_string(string $s): string
 {
-    # Ands.
     $s = str_replace('&', 'and', $s);
-
-    # Pre-process the string a bit to remove punctuation.
-    # !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~
     $pre = preg_quote('!"#$%&\'()*+,-./:;<=>?@[\]^_`{|}~', '/');
     $s = preg_replace('/[' . $pre . ']/', ' ', $s);
-
-    # Lowercase it.
     $s = strtolower($s);
-
-    # Strip leading "the/a"
     $s = preg_replace('/^(the|a) /', '', $s);
-
-    # Spaces.
     $s = preg_replace('/[ ]+/', ' ', $s);
-
     return trim($s);
 }
-
 
 if (!empty($query)) {
     $query = n(rawurldecode($query));
