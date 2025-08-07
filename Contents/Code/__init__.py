@@ -131,24 +131,23 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
                 return None
 
             nfoText = Core.storage.load(nfoFile)
+            nfoText = self.fix_xml(nfoText, "tvshow")
             # work around failing XML parses for things with &'s in them. This may need to go farther than just &'s....
-            nfoText = re.sub(
-                r"&(?![A-Za-z]+[0-9]*;|#[0-9]+;|#x[0-9a-fA-F]+;)", r"&amp;", nfoText
-            )
+            nfoText = re.sub(r"&(?![A-Za-z]+[0-9]*;|#[0-9]+;|#x[0-9a-fA-F]+;)", r"&amp;", nfoText)
             # remove empty xml tags from nfo
             nfoText = re.sub(r"^\s*<.*/>[\r\n]+", "", nfoText, flags=re.MULTILINE)
 
             try:
                 nfoXML = XML.ElementFromString(nfoText).xpath("//tvshow")[0]
-            except:
-                Log("ERROR: Cant parse XML in '{}' Aborting!".format(nfoFile))
+            except Exception as e:
+                Log("getShowInfo() - ERROR: Cant parse XML in '{}'. '{}' Aborting!".format(nfoFile, str(e)))
                 return None
 
             # Title
             try:
                 info["title"] = nfoXML.xpath("title")[0].text.strip()
             except:
-                Log("ERROR: No <title> tag in '{}' Aborting!".format(nfoFile))
+                Log("getShowInfo() - ERROR: No <title> tag in '{}' Aborting!".format(nfoFile))
                 return None
 
             # original title
@@ -206,7 +205,7 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
     def getEpisodeNFO(self, filename):
         if not filename:
             Log("getEpisodeNFO() - No file found in media object.")
-            return None
+            return {}
 
         info = {}
         try:
@@ -223,6 +222,7 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
             Log("getEpisodeNFO() - nfoFile: {}".format(nfoFile))
 
             nfoText = Core.storage.load(nfoFile)
+            nfoText = self.fix_xml(nfoText, "episodedetails")
             nfoText = re.sub(
                 r"&(?![A-Za-z]+[0-9]*;|#[0-9]+;|#x[0-9a-fA-F]+;)", r"&amp;", nfoText
             )
@@ -230,9 +230,9 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
 
             try:
                 nfoXML = XML.ElementFromString(nfoText).xpath("//episodedetails")[0]
-            except:
-                Log("ERROR: Cant parse XML in '{}' Aborting!".format(nfoFile))
-                return None
+            except Exception as e:
+                Log("getEpisodeNFO() - ERROR: Cant parse XML in '{}'. '{}' Aborting!".format(nfoFile, str(e)))
+                return {}
 
             keys = ["title", "season", "episode", "aired", ("plot", "summary")]
             for key in keys:
@@ -256,6 +256,52 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
             Log("getEpisodeNFO() Traceback: {}".format(traceback.format_exc()))
             return {}
 
+
+    def escape_text(self, s):
+        # keep valid entities as-is, escape stray &
+        s = re.sub(r'&(?![A-Za-z][A-Za-z0-9]*;|#[0-9]+;|#x[0-9A-Fa-f]+;)', '&amp;', s)
+        # then escape angle brackets in text nodes
+        s = s.replace('<', '&lt;').replace('>', '&gt;')
+        return s
+
+    def fix_xml(self, xml_content, outer_tag="episodedetails"):
+        # Extract the specified parent tag block
+        pattern = r'<{tag}>(.*?)</{tag}>'.format(tag=outer_tag)
+        match = re.search(pattern, xml_content, re.DOTALL)
+        if not match:
+            return xml_content
+        
+        tag_content = match.group(1)
+        
+        # Find all tags with their content - handles attributes too
+        tag_pattern = r'<(\w+)([^>]*?)>(.*?)</\1>'
+        
+        def replace_tag(tag_match):
+            tag_name = tag_match.group(1)
+            attributes = tag_match.group(2)  # preserve any attributes
+            tag_content = tag_match.group(3)
+            
+            # Escape the text content
+            escaped_content = self.escape_text(tag_content)
+            
+            return '<{tag_name}{attributes}>{content}</{tag_name}>'.format(
+                tag_name=tag_name,
+                attributes=attributes,
+                content=escaped_content
+            )
+        
+        # Replace all tags within the parent tag
+        fixed_content = re.sub(tag_pattern, replace_tag, tag_content)
+        
+        # Reconstruct the full parent tag block
+        fixed_xml = xml_content.replace(match.group(0), '<{tag}>{content}</{tag}>'.format(tag=outer_tag, content=fixed_content))
+
+        # Escape any stray ampersands that are not part of valid entities
+        fixed_xml = re.sub(r"&(?![A-Za-z]+[0-9]*;|#[0-9]+;|#x[0-9a-fA-F]+;)", r"&amp;", fixed_xml)
+        # Remove empty tags
+        fixed_xml = re.sub(r"^\s*<.*/>[\r\n]+", "", fixed_xml, flags=re.MULTILINE)
+
+        return fixed_xml
     def search(self, results, media, lang, manual):
         Log("".ljust(60, "="))
         Log("Search() - Looking for: {}".format(media.show))
@@ -352,7 +398,7 @@ class CustomMetadataDBSeries(Agent.TV_Shows):
                             Log("updateEpisode() - No match for: [{}]".format(filename))
 
     def handleMatch(self, match, show, file=None):
-        nfo = self.getEpisodeNFO(file) if file else {}
+        nfo = self.getEpisodeNFO(file)
         series = match.group("series") if match.groupdict().has_key("series") else None
         month = match.group("month") if match.groupdict().has_key("month") else None
         day = match.group("day") if match.groupdict().has_key("day") else None
